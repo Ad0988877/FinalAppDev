@@ -15,8 +15,8 @@ struct ContentView: View {
                 .font(.title)
                 .multilineTextAlignment(.center)
                 .padding()
-            
-            Button("Get random Pokemon") {
+            //add text inbetween get and pokemon to say the type of pokemon selected
+            Button("Get Pokemon") {
                 viewModel.fetchPokemon()
             }.border(Color.blue,)
                 .foregroundStyle(.white)
