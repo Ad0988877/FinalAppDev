@@ -7,10 +7,11 @@
 
 import SwiftUI
 
-struct PokeResponse: Codable {
-    let name: Pokemon
-}
-struct Pokemon: Codable {
-    let pokemon: String
+struct PokemonListResponse: Codable {
+    let results: [PokemonEntry]
 }
 
+struct PokemonEntry: Codable {
+    let name: String
+    let url: String
+}
