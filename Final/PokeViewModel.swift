@@ -6,50 +6,30 @@
 //
 
 import SwiftUI
-import Foundation
 
 class PokeViewModel: ObservableObject {
-    @Published var Pokemon: String = ""
-    
-    func fetchPokemon(){
-        guard let url = URL(string: "https://pokeapi.co/api/v2")else {
-            print( "Invalid URL")
-            return
-        }
-        URLSession.shared.dataTask(with: url) { (data, response, error) in
-            if let data = data{
-                do{
-                    let decodedResponse = try JSONDecoder().decode(PokeResponse.self, from: data)
-                    DispatchQueue.main.async {
-                        self.Pokemon = decodedResponse.name.pokemon
-                    }
-                }catch{
-                    print("Decoding Error: \(error)")
-                }
-            }else if let error = error{
-                print("HTTP request failed: \(error)")
-            }
-        }.resume()
-    }
-}
-class PokeViewModel: ObservableObject {
-    @Published var randomPokemonNames: [String] = []
+    @Published var randomPokemon: [PokemonEntry] = []
     @Published var types: [String] = []
     @Published var selectedType: String = ""
-    @Published var typeBasedPokemonNames: [String] = []
+    @Published var typeBasedPokemon: [PokemonEntry] = []
+    @Published var favorites: [PokemonEntry] = []
+
+    func addToFavorites(_ pokemon: PokemonEntry) {
+        if !favorites.contains(pokemon) {
+            favorites.append(pokemon)
+        }
+    }
 
     func fetchRandomPokemon() {
         guard let url = URL(string: "https://pokeapi.co/api/v2/pokemon?limit=1000") else { return }
 
-        URLSession.shared.dataTask(with: url) { data, _, error in
+        URLSession.shared.dataTask(with: url) { data, _, _ in
             if let data = data {
                 do {
                     let decoded = try JSONDecoder().decode(PokemonListResponse.self, from: data)
-                    let allPokemon = decoded.results
-                    let random3 = allPokemon.shuffled().prefix(3).map { $0.name }
-
+                    let random3 = Array(decoded.results.shuffled().prefix(3))
                     DispatchQueue.main.async {
-                        self.randomPokemonNames = random3
+                        self.randomPokemon = random3
                     }
                 } catch {
                     print("Decode error:", error)
@@ -61,12 +41,11 @@ class PokeViewModel: ObservableObject {
     func fetchTypes() {
         guard let url = URL(string: "https://pokeapi.co/api/v2/type") else { return }
 
-        URLSession.shared.dataTask(with: url) { data, _, error in
+        URLSession.shared.dataTask(with: url) { data, _, _ in
             if let data = data {
                 do {
-                    let decoded = try JSONDecoder().decode([String: [PokemonEntry]].self, from: data)
-                    let typeNames = decoded["results"]?.map { $0.name } ?? []
-
+                    let decoded = try JSONDecoder().decode(PokemonListResponse.self, from: data)
+                    let typeNames = decoded.results.map { $0.name }
                     DispatchQueue.main.async {
                         self.types = typeNames
                     }
@@ -80,16 +59,25 @@ class PokeViewModel: ObservableObject {
     func fetchPokemonByType(_ type: String) {
         guard let url = URL(string: "https://pokeapi.co/api/v2/type/\(type)") else { return }
 
-        URLSession.shared.dataTask(with: url) { data, _, error in
+        URLSession.shared.dataTask(with: url) { data, _, _ in
             if let data = data {
                 do {
-                    let decoded = try JSONDecoder().decode([String: Any].self, from: data)
-                    guard let pokemonList = decoded["pokemon"] as? [[String: Any]] else { return }
-                    let names = pokemonList.compactMap { ($0["pokemon"] as? [String: String])?["name"] }
-                    let random3 = names.shuffled().prefix(3)
+                    let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                    guard let pokemonList = json?["pokemon"] as? [[String: Any]] else { return }
+
+                    let entries: [PokemonEntry] = pokemonList.compactMap {
+                        if let pokemonInfo = $0["pokemon"] as? [String: String],
+                        let name = pokemonInfo["name"],
+                        let url = pokemonInfo["url"] {
+                            return PokemonEntry(name: name, url: url)
+                        }
+                        return nil
+                    }
+
+                    let random3 = Array(entries.shuffled().prefix(3))
 
                     DispatchQueue.main.async {
-                        self.typeBasedPokemonNames = Array(random3)
+                        self.typeBasedPokemon = random3
                     }
                 } catch {
                     print("Type-based decode error:", error)
